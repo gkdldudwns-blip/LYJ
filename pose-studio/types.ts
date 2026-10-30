@@ -8,6 +8,8 @@ export interface Pose {
   prompt: string;
   /** 이모티콘 문구 기본값 */
   caption?: string;
+  /** 화면에 보여 줄 한국어 장면 설명 (기획으로 만든 내 포즈) */
+  desc?: string;
   /** 기본 포즈: 썸네일 그림 경로 (public/ 기준) */
   thumb?: string;
   /** 내 포즈: 참고 이미지 (dataURL) */
@@ -26,7 +28,21 @@ export interface Character {
   note: string;
   /** 몸 구조. 없으면 아직 분석 전 */
   kind?: CharacterKind;
+  /** 성격·콘셉트. 모든 포즈를 이 성격으로 연기한다 (예: 뭐든 휘파람으로 넘기는 태평한 병아리) */
+  concept?: string;
+  /** 어떤 포즈에서도 지킬 트레이드마크 (예: 부리 없음, 리본은 머리 오른쪽 위) */
+  traits?: string;
   createdAt: number;
+}
+
+/** 콘셉트로 기획한 이모티콘 아이디어 하나 */
+export interface PoseIdea {
+  name: string;
+  caption: string;
+  /** 한국어 장면 설명 (화면용) */
+  scene: string;
+  /** 이미지 모델에게 보낼 영어 포즈 설명 */
+  prompt: string;
 }
 
 export interface ResultItem {
@@ -59,6 +75,8 @@ export interface GenerateOptions {
   captions: Record<string, string>;
   perPose: number;
   extra: string;
+  /** 캐릭터 콘셉트를 연기에 반영할지 */
+  useConcept: boolean;
 }
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error';

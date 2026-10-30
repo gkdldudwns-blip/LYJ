@@ -44,6 +44,7 @@ export const DEFAULT_OPTIONS: GenerateOptions = {
   captions: {},
   perPose: 1,
   extra: '',
+  useConcept: true,
 };
 
 export const ASPECT_RATIOS: { id: AspectRatio; label: string }[] = [

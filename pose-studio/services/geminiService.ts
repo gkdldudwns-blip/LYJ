@@ -1,5 +1,5 @@
 import { ANALYSIS_MODEL } from '../constants';
-import { Character, CharacterKind, GenerateOptions, Pose, Settings } from '../types';
+import { Character, CharacterKind, GenerateOptions, Pose, PoseIdea, Settings } from '../types';
 import { splitDataUrl } from './imageUtils';
 
 export interface GenerateRequest {
@@ -44,6 +44,14 @@ function buildInstructions({ character, pose, options, caption }: GenerateReques
     '- It must look like the same artist drew it on the same day. Do not redesign the character and do not add details that are not in the reference.',
   ];
   if (character.note.trim()) lines.push(`- Description of this character (may be in Korean): ${character.note.trim()}`);
+  if (character.traits?.trim())
+    lines.push(`- TRADEMARK TRAITS that must appear exactly like this in every image, whatever the pose (may be in Korean): ${character.traits.trim()}`);
+  if (options.useConcept && character.concept?.trim())
+    lines.push(
+      '',
+      `PERSONALITY / CONCEPT (may be in Korean): ${character.concept.trim()}`,
+      "- Act the pose in this personality. If the pose's emotion seems to clash with it, keep the requested pose and show it through this personality; a comic contrast is welcome.",
+    )
   lines.push(
     '',
     'COMPOSITION:',
@@ -141,23 +149,88 @@ const ANALYSIS_PROMPT = `You help an artist turn their character into stickers i
 - kind: "humanoid" if it has a human-like body with two arms ending in hands and two legs (even if chibi or animal-headed); "creature" if it is an animal or creature whose body differs from a human (wings instead of arms, paws, four legs, no arms, a tail...); "object" if it is food, an object or a blob with no limbs or only tiny ones.
 - description: 2-3 short Korean sentences: what it is, key colors and features, which body parts it can pose with (e.g. "팔 대신 작은 날개 2개, 주황색 다리 2개, 손가락 없음"), and finally how hand gestures should be expressed (e.g. "손동작은 날개로 표현").`;
 
-/** 캐릭터가 사람형인지, 어떤 몸 구조인지 AI에게 묻는다 */
-export async function analyzeCharacter(settings: Settings, character: Character): Promise<CharacterAnalysis> {
+/** 텍스트 모델에게 JSON으로 답을 받는다 (캐릭터 그림을 함께 보여 준다) */
+async function askJson<T>(settings: Settings, prompt: string, character: Character): Promise<T> {
   const ai = await client(settings);
   const interaction = await withRetry(() =>
-    ai.interactions.create({
-      model: ANALYSIS_MODEL,
-      input: [{ type: 'text', text: ANALYSIS_PROMPT }, ...character.images.map(imageBlock)],
-      response_mime_type: 'application/json',
-      store: false,
-    }, NO_SDK_RETRY),
+    ai.interactions.create(
+      {
+        model: ANALYSIS_MODEL,
+        input: [{ type: 'text', text: prompt }, ...character.images.map(imageBlock)],
+        response_mime_type: 'application/json',
+        store: false,
+      },
+      NO_SDK_RETRY,
+    ),
   );
-  const text = interaction.output_text ?? '';
-  const json = /\{[\s\S]*\}/.exec(text)?.[0];
-  if (!json) throw new Error('캐릭터 분석 결과를 읽지 못했어요.');
-  const parsed = JSON.parse(json) as Partial<CharacterAnalysis>;
+  const json = /\{[\s\S]*\}/.exec(interaction.output_text ?? '')?.[0];
+  if (!json) throw new Error('AI 답변을 읽지 못했어요. 다시 시도해 주세요.');
+  return JSON.parse(json) as T;
+}
+
+/** 캐릭터가 사람형인지, 어떤 몸 구조인지 AI에게 묻는다 */
+export async function analyzeCharacter(settings: Settings, character: Character): Promise<CharacterAnalysis> {
+  const parsed = await askJson<Partial<CharacterAnalysis>>(settings, ANALYSIS_PROMPT, character);
   const kind: CharacterKind = parsed.kind === 'creature' || parsed.kind === 'object' ? parsed.kind : 'humanoid';
   return { kind, description: (parsed.description ?? '').trim() };
+}
+
+const describe = (c: Character) =>
+  [
+    c.note.trim() && `Description: ${c.note.trim()}`,
+    c.traits?.trim() && `Trademark traits: ${c.traits.trim()}`,
+    c.concept?.trim() && `Concept: ${c.concept.trim()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+/** 그림과 설명을 보고 이모티콘 세트용 성격·콘셉트 후보를 받는다 */
+export async function suggestConcepts(settings: Settings, character: Character): Promise<string[]> {
+  const prompt = `You are a planner of Korean chat sticker (emoticon) sets. Look at the CHARACTER REFERENCE image(s) below.
+${describe(character)}
+
+Propose 5 distinct, catchy personality concepts that would make this character's sticker set stand out.
+- Ground each one in something visible in the drawing (a facial habit, accessory, body shape...).
+- Each is one short Korean phrase (max 30 characters), like "뭐든 휘파람으로 넘기는 태평한 병아리".
+Reply with JSON only: {"concepts": ["...", "..."]}`;
+  const parsed = await askJson<{ concepts?: unknown }>(settings, prompt, character);
+  return (Array.isArray(parsed.concepts) ? parsed.concepts : [])
+    .filter((x): x is string => typeof x === 'string' && !!x.trim())
+    .map((x) => x.trim())
+    .slice(0, 5);
+}
+
+/** 콘셉트에 맞는 이모티콘 아이디어(이름·문구·포즈 설명)를 count개 기획한다 */
+export async function planPoseIdeas(
+  settings: Settings,
+  character: Character,
+  count: number,
+  avoid: string[],
+): Promise<PoseIdea[]> {
+  const prompt = `You are a planner of Korean chat sticker (emoticon) sets. Look at the CHARACTER REFERENCE image(s) below.
+${describe(character)}
+
+Plan ${count} sticker ideas for one set.
+- Every idea must be useful in everyday Korean chat (greetings, thanks, sorry, yes/no, cheering, reactions, feelings, daily life) AND clearly show the concept.
+- All ideas must be different from each other${avoid.length ? ` and from these existing poses: ${avoid.join(', ')}` : ''}.
+- Use only the body parts this character really has (for example wings instead of hands).
+For each idea give:
+- "name": short Korean title (max 8 characters)
+- "caption": short Korean chat phrase for the sticker (max 10 characters)
+- "scene": one short Korean sentence describing the scene for the artist (max 30 characters)
+- "prompt": 1-2 English sentences describing the pose, gesture, expression and any small prop, for an image model
+Reply with JSON only: {"ideas": [{"name": "...", "caption": "...", "scene": "...", "prompt": "..."}]}`;
+  const parsed = await askJson<{ ideas?: unknown }>(settings, prompt, character);
+  return (Array.isArray(parsed.ideas) ? parsed.ideas : [])
+    .map((x) => x as Partial<PoseIdea>)
+    .filter((x) => typeof x.name === 'string' && typeof x.prompt === 'string' && x.name.trim() && x.prompt.trim())
+    .map((x) => ({
+      name: x.name!.trim(),
+      caption: (x.caption ?? '').trim(),
+      scene: (x.scene ?? '').trim(),
+      prompt: x.prompt!.trim(),
+    }))
+    .slice(0, count);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
