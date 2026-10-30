@@ -112,7 +112,7 @@ const App: React.FC = () => {
     setCharacters((cs) => [...cs, c]);
     setSelectedCharacterId(c.id);
     persistCharacter(c);
-    if (hasKey) analyze(c, { quiet: true });
+    if (hasKey) analyze(c);
   };
 
   /** AI가 캐릭터의 몸 구조(사람형·동물·사물)와 설명을 채운다. 사용자가 쓴 설명은 덮어쓰지 않는다 */
@@ -131,7 +131,7 @@ const App: React.FC = () => {
       );
       return { ...c, kind, note: replaceNote || !c.note.trim() ? description : c.note };
     } catch (err) {
-      if (!quiet) setNotice(`캐릭터를 분석하지 못했어요: ${describeError(err)}`);
+      if (!quiet) setNotice(`캐릭터를 자동으로 분석하지 못했어요. 몸 구조를 직접 골라 주세요. (${describeError(err)})`);
       return c;
     } finally {
       setAnalyzingId((id) => (id === c.id ? null : id));
@@ -350,7 +350,7 @@ const App: React.FC = () => {
     const snapshot = { ...options, captions: { ...options.captions } };
     const poses = selectedPoses;
     // 아직 분석하지 않은 캐릭터는 먼저 몸 구조를 파악한다
-    const ready = character.kind ? character : await analyze(character, { quiet: true });
+    const ready = character.kind ? character : await analyze(character);
     enqueue(
       poses.flatMap((pose) =>
         Array.from({ length: snapshot.perPose }, () => ({
