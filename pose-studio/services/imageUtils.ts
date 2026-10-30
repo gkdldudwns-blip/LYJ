@@ -178,7 +178,7 @@ export async function exportImage(src: string, { size, transparent }: ExportOpti
   return out.toDataURL('image/png');
 }
 
-function downloadBlob(blob: Blob, filename: string) {
+export function downloadBlob(blob: Blob, filename: string) {
   // data: 주소를 바로 쓰면 브라우저가 파일 이름을 무시할 때가 있어 Blob 주소로 내려받는다
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

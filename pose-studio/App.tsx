@@ -9,10 +9,12 @@ import GuidePage from './components/GuidePage';
 import Lightbox from './components/Lightbox';
 import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
+import BackupModal from './components/BackupModal';
 import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, POSES } from './constants';
 import { Character, GenerateOptions, Job, Page, Pose, ResultItem, Settings } from './types';
 import { analyzeCharacter, describeError, generatePoseImage, quotaBlock, resolveApiKey } from './services/geminiService';
-import { downloadDataUrl, downloadZip, exportImage, normalizeImage, safeName, urlToDataUrl } from './services/imageUtils';
+import { downloadBlob, downloadDataUrl, downloadZip, exportImage, normalizeImage, safeName, urlToDataUrl } from './services/imageUtils';
+import { createBackup, readBackup } from './services/backup';
 import {
   ExportPrefs,
   getAll,
@@ -48,6 +50,7 @@ const App: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [lightbox, setLightbox] = useState<ResultItem | null>(null);
   const [showCustomPose, setShowCustomPose] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
   const [exportPrefs, setExportPrefs] = useState<ExportPrefs>(loadExportPrefs);
   const [notice, setNotice] = useState('');
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -356,6 +359,46 @@ const App: React.FC = () => {
     for (const id of ids) remove('results', id).catch(() => undefined);
   };
 
+  // ---------- 다른 기기로 옮기기 ----------
+
+  const exportBackup = async () => {
+    try {
+      const blob = await createBackup({ characters, results, poses: customPoses, favorites });
+      downloadBlob(blob, `jooniverstudio_backup_${new Date().toISOString().slice(0, 10)}.zip`);
+      setNotice('백업 파일을 만들었어요. 다른 기기로 보내서 불러오세요.');
+    } catch {
+      setNotice('백업 파일을 만들지 못했어요.');
+    }
+  };
+
+  /** 같은 id는 백업 내용으로 바꾸고, 없는 것은 더한다. 지우는 것은 없다 */
+  const importBackup = async (file: File) => {
+    try {
+      const data = await readBackup(file);
+      const merge = <T extends { id: string }>(current: T[], incoming: T[]) => {
+        const ids = new Set(incoming.map((x) => x.id));
+        return [...current.filter((x) => !ids.has(x.id)), ...incoming];
+      };
+      for (const c of data.characters) await put('characters', c);
+      for (const r of data.results) await put('results', r);
+      for (const p of data.poses) await put('poses', p);
+      const nextCharacters = merge(characters, data.characters).sort((a, b) => a.createdAt - b.createdAt);
+      setCharacters(nextCharacters);
+      setSelectedCharacterId((id) => id ?? nextCharacters[0]?.id ?? null);
+      setResults((rs) => merge(rs, data.results).sort(byNewest));
+      setCustomPoses((ps) => merge(ps, data.poses));
+      const nextFavorites = Array.from(new Set([...favorites, ...data.favorites]));
+      setFavorites(nextFavorites);
+      saveFavorites(nextFavorites);
+      setShowBackup(false);
+      setNotice(
+        `캐릭터 ${data.characters.length}개, 그림 ${data.results.length}장, 내 포즈 ${data.poses.length}개를 불러왔어요.`,
+      );
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : '백업 파일을 불러오지 못했어요.');
+    }
+  };
+
   const updateSettings = (s: Settings) => {
     setSettings(s);
     saveSettings(s);
@@ -434,6 +477,7 @@ const App: React.FC = () => {
             onChangePrefs={changeExportPrefs}
             onOpen={setLightbox}
             onDownloadZip={downloadMany}
+            onOpenBackup={() => setShowBackup(true)}
             onAddReference={addAsReferences}
             onDelete={deleteResults}
             onGoStudio={() => setPage('studio')}
@@ -475,10 +519,22 @@ const App: React.FC = () => {
           settings={settings}
           envKey={!!process.env.GEMINI_API_KEY}
           onSave={updateSettings}
+          onOpenBackup={() => {
+            setShowSettings(false);
+            setShowBackup(true);
+          }}
           onClose={() => setShowSettings(false)}
         />
       )}
       {showCustomPose && <CustomPoseModal onSave={addCustomPose} onClose={() => setShowCustomPose(false)} />}
+      {showBackup && (
+        <BackupModal
+          counts={{ characters: characters.length, results: results.length, poses: customPoses.length }}
+          onExport={exportBackup}
+          onImport={importBackup}
+          onClose={() => setShowBackup(false)}
+        />
+      )}
       {lightbox && (
         <Lightbox
           item={lightbox}
