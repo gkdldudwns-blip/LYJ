@@ -1,0 +1,5 @@
+{
+  "name": "Pose Studio",
+  "description": "A personal character pose generator: upload one character drawing, pick poses from a library, and get the same character redrawn in those poses for emoticons and Instagram comics.",
+  "requestFramePermissions": []
+}
