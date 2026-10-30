@@ -11,7 +11,7 @@ import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
 import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, POSES } from './constants';
 import { Character, GenerateOptions, Job, Page, Pose, ResultItem, Settings } from './types';
-import { analyzeCharacter, describeError, generatePoseImage, resolveApiKey } from './services/geminiService';
+import { analyzeCharacter, describeError, generatePoseImage, quotaBlock, resolveApiKey } from './services/geminiService';
 import { downloadDataUrl, downloadZip, exportImage, normalizeImage, safeName, urlToDataUrl } from './services/imageUtils';
 import {
   ExportPrefs,
@@ -244,7 +244,16 @@ const App: React.FC = () => {
           updateJob(job.id, { status: 'done', result });
           setResults((rs) => [result, ...rs]);
         })
-        .catch((err) => updateJob(job.id, { status: 'error', error: describeError(err) }))
+        .catch((err) => {
+          const error = describeError(err);
+          updateJob(job.id, { status: 'error', error });
+          // 결제가 안 됐거나 하루 한도를 다 쓴 경우엔 남은 것도 똑같이 실패하므로 대기열을 멈춘다
+          if (quotaBlock(err)) {
+            const cancelled = queue.current.splice(0);
+            setJobs((js) => js.map((j) => (cancelled.some((c) => c.id === j.id) ? { ...j, status: 'error', error } : j)));
+            setNotice(error);
+          }
+        })
         .finally(() => {
           active.current--;
           pump();
@@ -289,6 +298,13 @@ const App: React.FC = () => {
       ),
     );
     setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const retryFailed = () => {
+    const failed = jobs.filter((j) => j.status === 'error');
+    setJobs((js) => js.map((j) => (j.status === 'error' ? { ...j, status: 'queued', error: undefined } : j)));
+    queue.current.push(...failed);
+    pump();
   };
 
   const retryJob = (job: Job) => {
@@ -402,6 +418,7 @@ const App: React.FC = () => {
             <ResultsSection
               jobs={jobs}
               onRetry={retryJob}
+              onRetryFailed={retryFailed}
               onOpen={setLightbox}
               onAddReference={addAsReferences}
               onClear={() => setJobs((js) => js.filter((j) => j.status === 'queued' || j.status === 'running'))}

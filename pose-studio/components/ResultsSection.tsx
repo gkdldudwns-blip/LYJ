@@ -5,11 +5,12 @@ import { Card, Spinner } from './ui';
 const ResultsSection: React.FC<{
   jobs: Job[];
   onRetry: (job: Job) => void;
+  onRetryFailed: () => void;
   onOpen: (item: ResultItem) => void;
   onAddReference: (items: ResultItem[]) => void;
   onClear: () => void;
   onDownloadAll: (items: ResultItem[]) => void;
-}> = ({ jobs, onRetry, onOpen, onAddReference, onClear, onDownloadAll }) => {
+}> = ({ jobs, onRetry, onRetryFailed, onOpen, onAddReference, onClear, onDownloadAll }) => {
   if (!jobs.length) return null;
   const done = jobs.filter((j) => j.status === 'done' && j.result).map((j) => j.result!);
   const pending = jobs.filter((j) => j.status === 'queued' || j.status === 'running').length;
@@ -27,6 +28,11 @@ const ResultsSection: React.FC<{
           </span>
         </h2>
         <div className="flex items-center gap-3 text-sm">
+          {failed > 0 && pending === 0 && (
+            <button type="button" onClick={onRetryFailed} className="font-semibold text-purple-600 hover:text-purple-800">
+              실패 {failed}개 다시 시도
+            </button>
+          )}
           {done.length > 0 && (
             <button type="button" onClick={() => onDownloadAll(done)} className="font-semibold text-purple-600 hover:text-purple-800">
               전체 저장 (ZIP)

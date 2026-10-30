@@ -120,7 +120,7 @@ export async function generatePoseImage(req: GenerateRequest): Promise<string> {
       },
       // 캐릭터 그림을 Google 서버에 대화 기록으로 남기지 않는다
       store: false,
-    }),
+    }, NO_SDK_RETRY),
   );
 
   const out = interaction.output_image;
@@ -150,7 +150,7 @@ export async function analyzeCharacter(settings: Settings, character: Character)
       input: [{ type: 'text', text: ANALYSIS_PROMPT }, ...character.images.map(imageBlock)],
       response_mime_type: 'application/json',
       store: false,
-    }),
+    }, NO_SDK_RETRY),
   );
   const text = interaction.output_text ?? '';
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
@@ -167,27 +167,51 @@ const statusOf = (err: unknown): number | undefined => {
   return typeof s === 'number' ? s : undefined;
 };
 
-/** 요청이 몰리거나(429) 서버가 바쁠 때(5xx) 잠시 쉬었다 다시 시도한다 */
+// 재시도는 withRetry가 맡는다. SDK도 따로 재시도하면 한도 초과(무료 등급) 때 같은 요청을 여러 번 보낸다
+const NO_SDK_RETRY = { retries: { strategy: 'none' as const } };
+
+const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/**
+ * 다시 해도 소용없는 한도 초과: 무료 등급이라 이 모델 한도가 0이거나, 하루 한도를 다 쓴 경우.
+ * 분당 요청 수 초과(잠깐 쉬면 풀림)와 구분한다.
+ */
+export function quotaBlock(err: unknown): 'billing' | 'daily' | null {
+  if (statusOf(err) !== 429) return null;
+  const raw = messageOf(err);
+  if (/limit:\s*0\b|free[_ -]?tier/i.test(raw)) return 'billing';
+  if (/per[_ -]?day|daily/i.test(raw)) return 'daily';
+  return null;
+}
+
+/** 요청이 잠깐 몰리거나(429) 서버가 바쁠 때(5xx) 잠시 쉬었다 다시 시도한다 */
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   for (let i = 1; ; i++) {
     try {
       return await fn();
     } catch (err) {
       const status = statusOf(err);
-      const retryable = status === 429 || (status !== undefined && status >= 500);
+      const retryable = (status === 429 && !quotaBlock(err)) || (status !== undefined && status >= 500);
       if (!retryable || i >= attempts) throw err;
       await sleep(i * 8000);
     }
   }
 }
 
+export const BILLING_MESSAGE =
+  '무료 API 키로는 이미지 모델을 쓸 수 없어요. Google AI Studio에서 결제(유료 등급)를 켜 주세요. 1K 그림 1장에 약 50원이에요.';
+
 export function describeError(err: unknown): string {
   const status = statusOf(err);
-  const raw = err instanceof Error ? err.message : String(err);
+  const raw = messageOf(err);
+  const block = quotaBlock(err);
+  if (block === 'billing') return BILLING_MESSAGE;
+  if (block === 'daily') return '오늘 쓸 수 있는 양을 다 썼어요. 내일 다시 시도하거나 Google AI Studio에서 등급을 올려 주세요.';
   if (status === 400 && /api[_ ]?key/i.test(raw)) return 'API 키가 올바르지 않아요. 설정에서 키를 확인해 주세요.';
-  if (status === 401 || status === 403) return 'API 키 권한이 없어요. 키가 맞는지, 결제(유료 등급)가 필요한 모델인지 확인해 주세요.';
+  if (status === 401 || status === 403) return 'API 키 권한이 없어요. 키가 맞는지, 결제(유료 등급)가 켜져 있는지 확인해 주세요.';
   if (status === 404) return '모델을 찾을 수 없어요. 설정에서 다른 모델을 골라 주세요.';
-  if (status === 429) return '요청이 너무 많아요. 잠시 후 다시 시도하거나, 설정에서 동시 생성 수를 줄여 주세요.';
+  if (status === 429)
+    return '요청이 너무 많아요. 잠시 후 다시 시도하거나 설정에서 동시 생성 수를 줄여 주세요. 계속 이러면 Google AI Studio에서 결제(유료 등급)가 켜져 있는지 확인해 주세요.';
   if (status !== undefined && status >= 500) return 'Gemini 서버가 바빠요. 잠시 후 다시 시도해 주세요.';
   if (/safety|blocked|prohibited/i.test(raw)) return '안전 정책 때문에 이 이미지는 만들 수 없었어요. 포즈나 추가 요청을 바꿔 보세요.';
   if (/failed to fetch|network/i.test(raw)) return '네트워크 오류예요. 인터넷 연결을 확인해 주세요.';

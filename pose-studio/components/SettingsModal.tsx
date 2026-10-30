@@ -49,6 +49,14 @@ const SettingsModal: React.FC<{
           </p>
         </div>
 
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 leading-relaxed">
+          <b>이미지 생성은 결제(유료 등급)가 켜진 키에서만 돼요.</b> 무료 키로는 Nano Banana 이미지 모델을 쓸 수 없어요.{' '}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline font-semibold">
+            Google AI Studio
+          </a>
+          에서 키 옆의 결제 설정(Set up billing)으로 카드를 연결하면 돼요. Nano Banana 2.1 기준 1K 그림 1장에 약 $0.034(약 50원), 2K는 약 $0.05예요.
+        </div>
+
         <div>
           <p className="text-sm font-bold text-slate-800 mb-2">이미지 모델</p>
           <div className="space-y-1.5">
