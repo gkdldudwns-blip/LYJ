@@ -114,8 +114,10 @@ const PoseSection: React.FC<{
                 {thumb ? (
                   <img src={thumb} alt="" className="w-full aspect-square object-contain p-1.5" draggable={false} loading="lazy" />
                 ) : (
-                  <span className="w-full aspect-square flex items-center justify-center p-3 text-[11px] leading-snug text-slate-500 bg-[#faf7fd]">
-                    {p.prompt.slice(0, 40)}
+                  <span className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 p-3 bg-[#faf7fd] text-center">
+                    <span className="text-2xl" aria-hidden="true">✨</span>
+                    {p.caption && <span className="text-xs font-bold text-purple-700 leading-snug">“{p.caption}”</span>}
+                    <span className="text-[10px] leading-snug text-slate-500 line-clamp-3">{p.desc ?? p.prompt}</span>
                   </span>
                 )}
                 <span className={`block text-xs py-1.5 truncate px-1 ${on ? 'text-purple-700 font-bold' : 'text-slate-600'}`}>

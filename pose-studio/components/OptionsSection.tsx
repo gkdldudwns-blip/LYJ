@@ -1,6 +1,6 @@
 import React from 'react';
 import { ASPECT_RATIOS } from '../constants';
-import { GenerateOptions, Pose, Purpose } from '../types';
+import { Character, GenerateOptions, Pose, Purpose } from '../types';
 import { Card, Segmented, Toggle } from './ui';
 
 const PURPOSES: { id: Purpose; label: string }[] = [
@@ -12,7 +12,8 @@ const OptionsSection: React.FC<{
   options: GenerateOptions;
   onChange: (o: GenerateOptions) => void;
   selectedPoses: Pose[];
-}> = ({ options, onChange, selectedPoses }) => {
+  character: Character | null;
+}> = ({ options, onChange, selectedPoses, character }) => {
   const set = <K extends keyof GenerateOptions>(key: K, value: GenerateOptions[K]) => onChange({ ...options, [key]: value });
 
   return (
@@ -48,6 +49,15 @@ const OptionsSection: React.FC<{
           onChange={(v) => set('perPose', v)}
         />
       </div>
+
+      {character?.concept?.trim() && (
+        <Toggle
+          checked={options.useConcept}
+          onChange={(v) => set('useConcept', v)}
+          label="캐릭터 콘셉트 반영"
+          hint={`모든 포즈를 "${character.concept.trim()}" 성격으로 연기해요.`}
+        />
+      )}
 
       <div className="space-y-3">
         <Toggle

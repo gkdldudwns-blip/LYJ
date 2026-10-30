@@ -10,9 +10,18 @@ import Lightbox from './components/Lightbox';
 import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
 import BackupModal from './components/BackupModal';
+import ConceptPlanModal from './components/ConceptPlanModal';
 import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, POSES } from './constants';
-import { Character, GenerateOptions, Job, Page, Pose, ResultItem, Settings } from './types';
-import { analyzeCharacter, describeError, generatePoseImage, quotaBlock, resolveApiKey } from './services/geminiService';
+import { Character, GenerateOptions, Job, Page, Pose, PoseIdea, ResultItem, Settings } from './types';
+import {
+  analyzeCharacter,
+  describeError,
+  generatePoseImage,
+  planPoseIdeas,
+  quotaBlock,
+  resolveApiKey,
+  suggestConcepts,
+} from './services/geminiService';
 import { downloadBlob, downloadDataUrl, downloadZip, exportImage, normalizeImage, safeName, urlToDataUrl } from './services/imageUtils';
 import { createBackup, readBackup } from './services/backup';
 import {
@@ -51,6 +60,7 @@ const App: React.FC = () => {
   const [lightbox, setLightbox] = useState<ResultItem | null>(null);
   const [showCustomPose, setShowCustomPose] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
+  const [planFor, setPlanFor] = useState<Character | null>(null);
   const [exportPrefs, setExportPrefs] = useState<ExportPrefs>(loadExportPrefs);
   const [notice, setNotice] = useState('');
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -183,6 +193,58 @@ const App: React.FC = () => {
   const addCustomPose = (pose: Pose) => {
     setCustomPoses((ps) => [...ps, pose]);
     put('poses', pose).catch(() => setNotice('포즈를 저장하지 못했어요.'));
+  };
+
+  // ---------- 콘셉트 ----------
+
+  const needKey = () => {
+    if (hasKey) return false;
+    setNotice('AI 기능에는 Gemini API 키가 필요해요.');
+    setShowSettings(true);
+    return true;
+  };
+
+  const suggestConceptsFor = async (c: Character): Promise<string[]> => {
+    if (needKey()) return [];
+    try {
+      const list = await suggestConcepts(settingsRef.current, c);
+      if (!list.length) setNotice('추천을 받지 못했어요. 다시 시도해 주세요.');
+      return list;
+    } catch (err) {
+      setNotice(describeError(err));
+      return [];
+    }
+  };
+
+  const planIdeas = async (c: Character, count: number): Promise<PoseIdea[]> => {
+    if (needKey()) return [];
+    try {
+      const ideas = await planPoseIdeas(settingsRef.current, c, count, allPoses.map((p) => p.name));
+      if (!ideas.length) setNotice('아이디어를 받지 못했어요. 다시 시도해 주세요.');
+      return ideas;
+    } catch (err) {
+      setNotice(describeError(err));
+      return [];
+    }
+  };
+
+  /** 기획한 아이디어를 "내 포즈"로 저장하고 바로 고른 상태로 둔다 */
+  const addIdeasAsPoses = (ideas: PoseIdea[]) => {
+    const now = Date.now();
+    const poses: Pose[] = ideas.map((idea, i) => ({
+      id: `custom-${uid()}`,
+      name: idea.name,
+      category: 'custom',
+      prompt: idea.prompt,
+      desc: idea.scene || undefined,
+      caption: idea.caption || undefined,
+      createdAt: now + i,
+    }));
+    setCustomPoses((ps) => [...ps, ...poses]);
+    for (const p of poses) put('poses', p).catch(() => setNotice('포즈를 저장하지 못했어요.'));
+    setSelected(new Set([...selected, ...poses.map((p) => p.id)]));
+    setPlanFor(null);
+    setNotice(`"내 포즈"에 ${poses.length}개를 넣고 골라 뒀어요. 아래 "만들기"를 누르면 돼요.`);
   };
 
   const deleteCustomPose = (id: string) => {
@@ -447,6 +509,8 @@ const App: React.FC = () => {
                 }
                 analyze(c, { replaceNote: true });
               }}
+              onSuggestConcepts={suggestConceptsFor}
+              onPlan={(c) => (needKey() ? undefined : setPlanFor(c))}
             />
             <PoseSection
               poses={allPoses}
@@ -457,7 +521,7 @@ const App: React.FC = () => {
               onAddCustom={() => setShowCustomPose(true)}
               onDeleteCustom={deleteCustomPose}
             />
-            <OptionsSection options={options} onChange={setOptions} selectedPoses={selectedPoses} />
+            <OptionsSection options={options} onChange={setOptions} selectedPoses={selectedPoses} character={character} />
             <ResultsSection
               jobs={jobs}
               onRetry={retryJob}
@@ -527,6 +591,14 @@ const App: React.FC = () => {
         />
       )}
       {showCustomPose && <CustomPoseModal onSave={addCustomPose} onClose={() => setShowCustomPose(false)} />}
+      {planFor && (
+        <ConceptPlanModal
+          character={characters.find((c) => c.id === planFor.id) ?? planFor}
+          onPlan={planIdeas}
+          onAdd={addIdeasAsPoses}
+          onClose={() => setPlanFor(null)}
+        />
+      )}
       {showBackup && (
         <BackupModal
           counts={{ characters: characters.length, results: results.length, poses: customPoses.length }}

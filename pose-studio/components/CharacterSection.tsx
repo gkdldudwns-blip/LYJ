@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CHARACTER_KINDS, MAX_CHARACTER_IMAGES } from '../constants';
 import { Character } from '../types';
 import { normalizeImage, readFileAsDataUrl } from '../services/imageUtils';
+import ConceptPanel from './ConceptPanel';
 import { Card, Segmented, Spinner } from './ui';
 
 async function filesToImages(files: Iterable<File>): Promise<string[]> {
@@ -30,7 +31,9 @@ const CharacterSection: React.FC<{
   onDelete: (id: string) => void;
   analyzingId: string | null;
   onAnalyze: (c: Character) => void;
-}> = ({ characters, selectedId, onSelect, onCreate, onUpdate, onDelete, analyzingId, onAnalyze }) => {
+  onSuggestConcepts: (c: Character) => Promise<string[]>;
+  onPlan: (c: Character) => void;
+}> = ({ characters, selectedId, onSelect, onCreate, onUpdate, onDelete, analyzingId, onAnalyze, onSuggestConcepts, onPlan }) => {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
@@ -265,6 +268,7 @@ const CharacterSection: React.FC<{
           </div>
         </div>
       )}
+      {selected && <ConceptPanel character={selected} onUpdate={onUpdate} onSuggest={onSuggestConcepts} onPlan={onPlan} />}
       {error && <p className="mt-3 text-sm text-rose-500">{error}</p>}
       {fileInput(newInput, 'new')}
       {fileInput(addInput, 'add')}
