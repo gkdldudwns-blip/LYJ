@@ -10,9 +10,10 @@ const Gallery: React.FC<{
   onChangePrefs: (p: ExportPrefs) => void;
   onOpen: (item: ResultItem) => void;
   onDownloadZip: (items: ResultItem[]) => void;
+  onAddReference: (items: ResultItem[]) => void;
   onDelete: (items: ResultItem[]) => void;
   onGoStudio: () => void;
-}> = ({ results, prefs, onChangePrefs, onOpen, onDownloadZip, onDelete, onGoStudio }) => {
+}> = ({ results, prefs, onChangePrefs, onOpen, onDownloadZip, onAddReference, onDelete, onGoStudio }) => {
   const [character, setCharacter] = useState('all');
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -124,13 +125,23 @@ const Gallery: React.FC<{
       )}
 
       {selecting && pickedItems.length > 0 && (
-        <div className="sticky bottom-4 flex gap-2 max-w-md mx-auto">
+        <div className="sticky bottom-4 flex gap-2 max-w-lg mx-auto">
           <button
             type="button"
             onClick={() => onDownloadZip(pickedItems)}
             className="flex-1 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg"
           >
             {pickedItems.length}개 저장 (ZIP)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onAddReference(pickedItems);
+              endSelecting();
+            }}
+            className="px-4 py-3.5 rounded-2xl bg-white border-2 border-purple-200 text-purple-700 font-bold shadow-lg hover:bg-purple-50"
+          >
+            ＋ 참고 그림
           </button>
           <button
             type="button"

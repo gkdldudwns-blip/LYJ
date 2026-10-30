@@ -80,7 +80,7 @@ export async function generatePoseImage(req: GenerateRequest): Promise<string> {
       text:
         `You will draw a NEW illustration of an existing cartoon character in a new pose.\n` +
         `The next ${character.images.length} image(s) are the CHARACTER REFERENCE of the same character` +
-        (character.images.length > 1 ? ' (the first one is the main front view).' : '.'),
+        (character.images.length > 1 ? ' (the first one is the main reference; the others show the same character from other angles or in other poses).' : '.'),
     },
     ...character.images.map(imageBlock),
   ];

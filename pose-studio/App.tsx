@@ -9,10 +9,10 @@ import GuidePage from './components/GuidePage';
 import Lightbox from './components/Lightbox';
 import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
-import { DEFAULT_OPTIONS, POSES } from './constants';
+import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, POSES } from './constants';
 import { Character, GenerateOptions, Job, Page, Pose, ResultItem, Settings } from './types';
 import { analyzeCharacter, describeError, generatePoseImage, resolveApiKey } from './services/geminiService';
-import { downloadDataUrl, downloadZip, exportImage, safeName, urlToDataUrl } from './services/imageUtils';
+import { downloadDataUrl, downloadZip, exportImage, normalizeImage, safeName, urlToDataUrl } from './services/imageUtils';
 import {
   ExportPrefs,
   getAll,
@@ -128,6 +128,37 @@ const App: React.FC = () => {
   const updateCharacter = (c: Character) => {
     setCharacters((cs) => cs.map((x) => (x.id === c.id ? c : x)));
     persistCharacter(c);
+  };
+
+  /** 만든 그림을 그 그림의 캐릭터 참고 그림으로 넣는다. 이미 있는 그림은 건너뛴다 */
+  const addAsReferences = async (items: ResultItem[]) => {
+    const messages: string[] = [];
+    let orphaned = 0;
+    for (const charId of new Set(items.map((r) => r.characterId))) {
+      const c = characters.find((x) => x.id === charId);
+      const mine = items.filter((r) => r.characterId === charId);
+      if (!c) {
+        orphaned += mine.length;
+        continue;
+      }
+      const fresh: string[] = [];
+      for (const r of mine) {
+        const img = await normalizeImage(r.image);
+        if (!c.images.includes(img) && !fresh.includes(img)) fresh.push(img);
+      }
+      const added = fresh.slice(0, MAX_CHARACTER_IMAGES - c.images.length);
+      if (added.length) updateCharacter({ ...c, images: [...c.images, ...added] });
+      const skipped = fresh.length - added.length;
+      messages.push(
+        !fresh.length
+          ? `'${c.name}'에 이미 들어 있는 그림이에요.`
+          : !added.length
+            ? `'${c.name}'의 참고 그림이 가득 찼어요 (최대 ${MAX_CHARACTER_IMAGES}장). 몇 장 빼고 다시 넣어 주세요.`
+            : `'${c.name}'에 참고 그림 ${added.length}장을 넣었어요${skipped ? ` (최대 ${MAX_CHARACTER_IMAGES}장이라 ${skipped}장은 못 넣었어요)` : ''}.`,
+      );
+    }
+    if (orphaned) messages.push(`캐릭터가 지워져서 넣지 못한 그림이 ${orphaned}장 있어요.`);
+    setNotice(messages.join(' '));
   };
 
   const deleteCharacter = (id: string) => {
@@ -372,6 +403,7 @@ const App: React.FC = () => {
               jobs={jobs}
               onRetry={retryJob}
               onOpen={setLightbox}
+              onAddReference={addAsReferences}
               onClear={() => setJobs((js) => js.filter((j) => j.status === 'queued' || j.status === 'running'))}
               onDownloadAll={downloadMany}
             />
@@ -385,6 +417,7 @@ const App: React.FC = () => {
             onChangePrefs={changeExportPrefs}
             onOpen={setLightbox}
             onDownloadZip={downloadMany}
+            onAddReference={addAsReferences}
             onDelete={deleteResults}
             onGoStudio={() => setPage('studio')}
           />
@@ -412,7 +445,10 @@ const App: React.FC = () => {
       )}
 
       {notice && (
-        <div role="status" className="fixed z-50 left-1/2 -translate-x-1/2 bottom-24 px-4 py-2.5 rounded-full bg-slate-900/90 text-white text-sm shadow-lg">
+        <div
+          role="status"
+          className="fixed z-[60] left-1/2 -translate-x-1/2 bottom-24 w-max max-w-[calc(100%-2rem)] px-4 py-2.5 rounded-2xl bg-slate-900/90 text-white text-sm text-center shadow-lg"
+        >
           {notice}
         </div>
       )}
@@ -432,6 +468,7 @@ const App: React.FC = () => {
           prefs={exportPrefs}
           onChangePrefs={changeExportPrefs}
           onDownload={downloadOne}
+          onAddReference={(r) => addAsReferences([r])}
           onDelete={(r) => deleteResults([r])}
           onClose={() => setLightbox(null)}
         />

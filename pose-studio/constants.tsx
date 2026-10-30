@@ -23,6 +23,9 @@ export const MODEL_PRESETS: { id: string; label: string }[] = [
   { id: 'gemini-3.1-flash-lite-image', label: 'Nano Banana 2 Lite · 가장 저렴 (일관성 약함)' },
 ];
 
+/** 캐릭터 참고 그림 최대 장수. Nano Banana는 입력 그림을 14장까지 받으므로 포즈 가이드 1장을 더해도 넉넉하다 */
+export const MAX_CHARACTER_IMAGES = 8;
+
 /** 캐릭터 분석에 쓰는 텍스트 모델 (항상 최신 Flash를 가리키는 별칭) */
 export const ANALYSIS_MODEL = 'gemini-flash-latest';
 
