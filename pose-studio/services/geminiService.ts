@@ -150,14 +150,27 @@ const ANALYSIS_PROMPT = `You help an artist turn their character into stickers i
 - description: 2-3 short Korean sentences: what it is, key colors and features, which body parts it can pose with (e.g. "팔 대신 작은 날개 2개, 주황색 다리 2개, 손가락 없음"), and finally how hand gestures should be expressed (e.g. "손동작은 날개로 표현").`;
 
 /** 텍스트 모델에게 JSON으로 답을 받는다 (캐릭터 그림을 함께 보여 준다) */
-async function askJson<T>(settings: Settings, prompt: string, character: Character): Promise<T> {
+type JsonSchema = Record<string, unknown>;
+const str = { type: 'string' };
+const obj = (properties: Record<string, JsonSchema>): JsonSchema => ({
+  type: 'object',
+  properties,
+  required: Object.keys(properties),
+});
+
+const ANALYSIS_SCHEMA = obj({ kind: { type: 'string', enum: ['humanoid', 'creature', 'object'] }, description: str });
+const CONCEPTS_SCHEMA = obj({ concepts: { type: 'array', items: str } });
+const IDEAS_SCHEMA = obj({ ideas: { type: 'array', items: obj({ name: str, caption: str, scene: str, prompt: str }) } });
+
+async function askJson<T>(settings: Settings, prompt: string, character: Character, schema: JsonSchema): Promise<T> {
   const ai = await client(settings);
   const interaction = await withRetry(() =>
     ai.interactions.create(
       {
         model: ANALYSIS_MODEL,
         input: [{ type: 'text', text: prompt }, ...character.images.map(imageBlock)],
-        response_mime_type: 'application/json',
+        // Interactions API는 JSON 출력을 response_format으로 지정한다 (response_mime_type만 주면 400)
+        response_format: { type: 'text', mime_type: 'application/json', schema },
         store: false,
       },
       NO_SDK_RETRY,
@@ -170,7 +183,7 @@ async function askJson<T>(settings: Settings, prompt: string, character: Charact
 
 /** 캐릭터가 사람형인지, 어떤 몸 구조인지 AI에게 묻는다 */
 export async function analyzeCharacter(settings: Settings, character: Character): Promise<CharacterAnalysis> {
-  const parsed = await askJson<Partial<CharacterAnalysis>>(settings, ANALYSIS_PROMPT, character);
+  const parsed = await askJson<Partial<CharacterAnalysis>>(settings, ANALYSIS_PROMPT, character, ANALYSIS_SCHEMA);
   const kind: CharacterKind = parsed.kind === 'creature' || parsed.kind === 'object' ? parsed.kind : 'humanoid';
   return { kind, description: (parsed.description ?? '').trim() };
 }
@@ -193,7 +206,7 @@ Propose 5 distinct, catchy personality concepts that would make this character's
 - Ground each one in something visible in the drawing (a facial habit, accessory, body shape...).
 - Each is one short Korean phrase (max 30 characters), like "뭐든 휘파람으로 넘기는 태평한 병아리".
 Reply with JSON only: {"concepts": ["...", "..."]}`;
-  const parsed = await askJson<{ concepts?: unknown }>(settings, prompt, character);
+  const parsed = await askJson<{ concepts?: unknown }>(settings, prompt, character, CONCEPTS_SCHEMA);
   return (Array.isArray(parsed.concepts) ? parsed.concepts : [])
     .filter((x): x is string => typeof x === 'string' && !!x.trim())
     .map((x) => x.trim())
@@ -220,7 +233,7 @@ For each idea give:
 - "scene": one short Korean sentence describing the scene for the artist (max 30 characters)
 - "prompt": 1-2 English sentences describing the pose, gesture, expression and any small prop, for an image model
 Reply with JSON only: {"ideas": [{"name": "...", "caption": "...", "scene": "...", "prompt": "..."}]}`;
-  const parsed = await askJson<{ ideas?: unknown }>(settings, prompt, character);
+  const parsed = await askJson<{ ideas?: unknown }>(settings, prompt, character, IDEAS_SCHEMA);
   return (Array.isArray(parsed.ideas) ? parsed.ideas : [])
     .map((x) => x as Partial<PoseIdea>)
     .filter((x) => typeof x.name === 'string' && typeof x.prompt === 'string' && x.name.trim() && x.prompt.trim())
