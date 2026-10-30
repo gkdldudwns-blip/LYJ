@@ -32,7 +32,10 @@ npm run dev
 
 브라우저에서 http://localhost:3000 을 열고, 오른쪽 위 **설정**에서 Gemini API 키를 넣으면 바로 쓸 수 있어요.
 API 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 만들 수 있어요.
-이미지 생성은 이미지당 요금이 붙는 경우가 많으니, Google AI Studio에서 요금과 사용량을 확인하세요.
+**이미지 모델(Nano Banana 계열)은 Gemini 무료 등급에서 쓸 수 없어요.** 무료 키로 만들면 "무료 API 키로는 이미지 모델을 쓸 수 없어요"가 떠요.
+Google AI Studio의 API 키 화면에서 결제 설정(Set up billing)으로 카드를 연결해 유료 등급을 켜 주세요.
+Nano Banana 2.1 기준 1K 그림 1장에 약 $0.034(약 50원), 2K는 약 $0.05예요(2026년 10월 Google 요금표 기준).
+캐릭터 분석에 쓰는 Flash 텍스트 모델은 비용이 아주 적어요.
 
 > 내 컴퓨터에서만 쓸 때는 `pose-studio/.env.local` 파일에 `GEMINI_API_KEY=키` 를 적어 두어도 돼요.
 > 이 방법은 키가 빌드 결과에 그대로 들어가므로, **인터넷에 올리는 배포에는 절대 쓰지 마세요.**
