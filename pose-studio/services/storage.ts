@@ -1,7 +1,8 @@
 import { DEFAULT_SETTINGS } from '../constants';
 import { Settings } from '../types';
 
-// 캐릭터·결과·내 포즈는 이 브라우저의 IndexedDB에만 저장된다
+// 캐릭터·결과·내 포즈는 이 브라우저의 IndexedDB에만 저장된다.
+// 앱 이름이 바뀌어도 저장된 데이터가 이어지도록 저장소 이름은 예전 것(pose-studio)을 그대로 쓴다.
 const DB_NAME = 'pose-studio';
 const DB_VERSION = 1;
 export type StoreName = 'characters' | 'results' | 'poses';

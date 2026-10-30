@@ -326,7 +326,7 @@ const App: React.FC = () => {
         files.push({ name: fileNameFor(r, url, i), dataUrl: url });
       }
       const stamp = new Date().toISOString().slice(0, 10);
-      await downloadZip(files, `pose-studio_${stamp}.zip`);
+      await downloadZip(files, `jooniverstudio_${stamp}.zip`);
       setNotice('');
     } catch {
       setNotice('ZIP 파일을 만들지 못했어요.');

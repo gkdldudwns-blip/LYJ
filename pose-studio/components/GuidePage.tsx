@@ -14,7 +14,7 @@ const STEPS = [
 const GuidePage: React.FC<{ onStart: () => void }> = ({ onStart }) => (
   <div className="space-y-6">
     <div className="text-center pt-6">
-      <span className="text-xs font-bold text-purple-600">이모티콘 · 인스타툰 작업용</span>
+      <span className="text-xs font-bold text-purple-600">Jooniverstudio · 이모티콘 · 인스타툰 작업용</span>
       <h1 className="mt-2 font-display text-4xl sm:text-5xl text-slate-900">캐릭터 포즈 생성기</h1>
       <p className="mt-3 text-slate-600 leading-relaxed">
         포즈를 매번 새로 고민하지 마세요.
