@@ -7,8 +7,9 @@ const SettingsModal: React.FC<{
   settings: Settings;
   envKey: boolean;
   onSave: (s: Settings) => void;
+  onOpenBackup: () => void;
   onClose: () => void;
-}> = ({ settings, envKey, onSave, onClose }) => {
+}> = ({ settings, envKey, onSave, onOpenBackup, onClose }) => {
   const [draft, setDraft] = useState(settings);
   const [show, setShow] = useState(false);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setDraft({ ...draft, [key]: value });
@@ -107,6 +108,18 @@ const SettingsModal: React.FC<{
           label="포즈 가이드 그림 함께 보내기"
           hint="사람형 캐릭터일 때 썸네일 그림을 같이 보내 포즈를 더 정확히 따라 하게 해요. 동물·사물 캐릭터에는 보내지 않아요. 마네킹 모양이 섞여 나오면 꺼 보세요."
         />
+
+        <button
+          type="button"
+          onClick={onOpenBackup}
+          className="w-full flex items-center justify-between rounded-2xl border border-[#e6dcf1] px-4 py-3 text-left hover:bg-purple-50"
+        >
+          <span>
+            <span className="block text-sm font-bold text-slate-800">다른 기기로 옮기기 (백업)</span>
+            <span className="block text-xs text-slate-500 mt-0.5">PC에서 하던 캐릭터·갤러리를 휴대폰에서 이어서 쓰기</span>
+          </span>
+          <span className="text-purple-500 text-lg" aria-hidden="true">›</span>
+        </button>
 
         <button
           type="button"

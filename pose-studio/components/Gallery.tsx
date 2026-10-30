@@ -10,10 +10,11 @@ const Gallery: React.FC<{
   onChangePrefs: (p: ExportPrefs) => void;
   onOpen: (item: ResultItem) => void;
   onDownloadZip: (items: ResultItem[]) => void;
+  onOpenBackup: () => void;
   onAddReference: (items: ResultItem[]) => void;
   onDelete: (items: ResultItem[]) => void;
   onGoStudio: () => void;
-}> = ({ results, prefs, onChangePrefs, onOpen, onDownloadZip, onAddReference, onDelete, onGoStudio }) => {
+}> = ({ results, prefs, onChangePrefs, onOpen, onDownloadZip, onOpenBackup, onAddReference, onDelete, onGoStudio }) => {
   const [character, setCharacter] = useState('all');
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -44,6 +45,9 @@ const Gallery: React.FC<{
       <div className="text-center pt-6">
         <h1 className="font-display text-4xl sm:text-5xl text-slate-900">내 갤러리</h1>
         <p className="mt-3 text-slate-600">만든 그림은 이 브라우저에 저장돼요. 기한 없이 보관되고, 브라우저 데이터를 지우면 함께 사라져요.</p>
+        <button type="button" onClick={onOpenBackup} className="mt-3 text-sm font-semibold text-purple-600 hover:text-purple-800">
+          다른 기기로 옮기기 · 백업 ›
+        </button>
       </div>
 
       {results.length === 0 ? (
