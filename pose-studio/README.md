@@ -1,4 +1,4 @@
-# 포즈 스튜디오 (Pose Studio)
+# Jooniverstudio
 
 내 캐릭터 그림 한 장을 올리고 포즈를 고르면, **같은 캐릭터·같은 그림체**로 그 포즈를 그려 주는 개인용 웹앱입니다.
 이모티콘 제작과 인스타툰 작업에 쓰려고 만들었고, 그림은 Google Gemini 이미지 모델(Nano Banana)로 만듭니다.
@@ -43,7 +43,7 @@ API 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 만들 �
 자동으로 빌드해서 **GitHub Pages**에 올려요. 처음 한 번만 설정하면 돼요.
 
 1. 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 바꾸기
-2. 이 코드를 `main`에 합치기 (또는 **Actions → Deploy Pose Studio → Run workflow**)
+2. 이 코드를 `main`에 합치기 (또는 **Actions → Deploy Jooniverstudio → Run workflow**)
 3. 몇 분 뒤 `https://<GitHub 아이디>.github.io/<저장소 이름>/` 주소로 열기
    (이 저장소는 https://gkdldudwns-blip.github.io/LYJ/)
 4. 휴대폰에서 열고 설정에서 API 키 입력. 홈 화면에 추가해 두면 앱처럼 쓸 수 있어요.

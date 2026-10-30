@@ -1,5 +1,5 @@
-# pose-studio를 GitHub Pages에 배포한다 (https://<사용자>.github.io/<저장소>/)
-name: Deploy Pose Studio
+# Jooniverstudio(pose-studio 폴더)를 GitHub Pages에 배포한다 (https://<사용자>.github.io/<저장소>/)
+name: Deploy Jooniverstudio
 
 on:
   push:
