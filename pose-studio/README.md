@@ -33,12 +33,16 @@ API 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 만들 �
 
 ## 휴대폰에서도 쓰기 (배포)
 
-정적 사이트라서 Vercel, Netlify, Cloudflare Pages 어디에나 올릴 수 있어요. Vercel 예시:
+`main` 브랜치에 `pose-studio/`가 바뀌면 GitHub Actions(`.github/workflows/deploy-pose-studio.yml`)가
+자동으로 빌드해서 **GitHub Pages**에 올려요. 처음 한 번만 설정하면 돼요.
 
-1. [vercel.com](https://vercel.com)에 GitHub로 로그인 → **Add New → Project** → 이 저장소 선택
-2. **Root Directory**를 `pose-studio`로 지정 (Framework는 Vite로 자동 인식)
-3. 환경 변수는 넣지 말고 **Deploy**
-4. 배포된 주소를 휴대폰에서 열고, 설정에서 API 키 입력
+1. 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 바꾸기
+2. 이 코드를 `main`에 합치기 (또는 **Actions → Deploy Pose Studio → Run workflow**)
+3. 몇 분 뒤 `https://<GitHub 아이디>.github.io/<저장소 이름>/` 주소로 열기
+   (이 저장소는 https://gkdldudwns-blip.github.io/LYJ/)
+4. 휴대폰에서 열고 설정에서 API 키 입력. 홈 화면에 추가해 두면 앱처럼 쓸 수 있어요.
+
+Vercel·Netlify·Cloudflare Pages에 올려도 돼요. 이때는 Root Directory를 `pose-studio`로 지정하고 환경 변수는 넣지 마세요.
 
 API 키는 각 브라우저에만 저장되므로, 다른 사람이 주소를 알아도 자기 키 없이는 그림을 만들 수 없어요.
 그래서 별도 로그인 없이도 사실상 **나만 쓰는 앱**이 됩니다.
