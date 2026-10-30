@@ -11,9 +11,8 @@ import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
 import { DEFAULT_OPTIONS, POSES } from './constants';
 import { Character, GenerateOptions, Job, Page, Pose, ResultItem, Settings } from './types';
-import { describeError, generatePoseImage, resolveApiKey } from './services/geminiService';
-import { figureToPng } from './services/figure';
-import { downloadDataUrl, downloadZip, exportImage, safeName } from './services/imageUtils';
+import { analyzeCharacter, describeError, generatePoseImage, resolveApiKey } from './services/geminiService';
+import { downloadDataUrl, downloadZip, exportImage, safeName, urlToDataUrl } from './services/imageUtils';
 import {
   ExportPrefs,
   getAll,
@@ -51,6 +50,7 @@ const App: React.FC = () => {
   const [showCustomPose, setShowCustomPose] = useState(false);
   const [exportPrefs, setExportPrefs] = useState<ExportPrefs>(loadExportPrefs);
   const [notice, setNotice] = useState('');
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getAll<Character>('characters'), getAll<Pose>('poses'), getAll<ResultItem>('results')])
@@ -99,6 +99,30 @@ const App: React.FC = () => {
     setCharacters((cs) => [...cs, c]);
     setSelectedCharacterId(c.id);
     persistCharacter(c);
+    if (hasKey) analyze(c, { quiet: true });
+  };
+
+  /** AI가 캐릭터의 몸 구조(사람형·동물·사물)와 설명을 채운다. 사용자가 쓴 설명은 덮어쓰지 않는다 */
+  const analyze = async (c: Character, { quiet = false, replaceNote = false } = {}): Promise<Character> => {
+    setAnalyzingId(c.id);
+    try {
+      const { kind, description } = await analyzeCharacter(settingsRef.current, c);
+      let updated = c;
+      setCharacters((cs) =>
+        cs.map((x) => {
+          if (x.id !== c.id) return x;
+          updated = { ...x, kind, note: replaceNote || !x.note.trim() ? description : x.note };
+          persistCharacter(updated);
+          return updated;
+        }),
+      );
+      return { ...c, kind, note: replaceNote || !c.note.trim() ? description : c.note };
+    } catch (err) {
+      if (!quiet) setNotice(`캐릭터를 분석하지 못했어요: ${describeError(err)}`);
+      return c;
+    } finally {
+      setAnalyzingId((id) => (id === c.id ? null : id));
+    }
   };
 
   const updateCharacter = (c: Character) => {
@@ -147,10 +171,12 @@ const App: React.FC = () => {
 
   const runJob = async (job: Job): Promise<ResultItem> => {
     const s = settingsRef.current;
+    // 마네킹 썸네일은 사람형 몸이라, 동물·사물 캐릭터에게 보내면 사람 팔다리가 생기기 쉽다
+    const useGuide = s.sendPoseGuide && job.pose.thumb && (job.character.kind ?? 'humanoid') === 'humanoid';
     const poseImage = job.pose.refImage
       ? { kind: 'reference' as const, dataUrl: job.pose.refImage }
-      : s.sendPoseGuide && job.pose.figure
-        ? { kind: 'guide' as const, dataUrl: await figureToPng(job.pose.figure) }
+      : useGuide
+        ? { kind: 'guide' as const, dataUrl: await urlToDataUrl(job.pose.thumb!) }
         : undefined;
     const caption = job.options.withCaption
       ? (job.options.captions[job.pose.id] ?? job.pose.caption ?? '').trim() || undefined
@@ -202,7 +228,7 @@ const App: React.FC = () => {
     pump();
   };
 
-  const startGeneration = () => {
+  const startGeneration = async () => {
     if (!character) {
       setNotice('캐릭터 그림을 먼저 올려 주세요.');
       return;
@@ -217,12 +243,15 @@ const App: React.FC = () => {
       return;
     }
     const snapshot = { ...options, captions: { ...options.captions } };
+    const poses = selectedPoses;
+    // 아직 분석하지 않은 캐릭터는 먼저 몸 구조를 파악한다
+    const ready = character.kind ? character : await analyze(character, { quiet: true });
     enqueue(
-      selectedPoses.flatMap((pose) =>
-        Array.from({ length: options.perPose }, () => ({
+      poses.flatMap((pose) =>
+        Array.from({ length: snapshot.perPose }, () => ({
           id: uid(),
           pose,
-          character,
+          character: ready,
           options: snapshot,
           status: 'queued' as const,
         })),
@@ -299,6 +328,7 @@ const App: React.FC = () => {
             <div className="text-center pt-8 pb-2">
               <h1 className="font-display text-4xl sm:text-5xl text-slate-900">캐릭터 포즈 만들기</h1>
               <p className="mt-3 text-slate-600">캐릭터 그림 올리고, 포즈 만들어 보세요!</p>
+              <p className="mt-1 text-sm text-slate-500">사람이 아니어도 돼요. 병아리, 고양이, 음식, 물건 캐릭터도 그 몸에 맞게 포즈를 잡아요.</p>
               <p className="mt-1 text-xs text-slate-400">만든 그림은 이 브라우저의 내 갤러리에 저장돼요.</p>
             </div>
 
@@ -318,6 +348,15 @@ const App: React.FC = () => {
               onCreate={createCharacter}
               onUpdate={updateCharacter}
               onDelete={deleteCharacter}
+              analyzingId={analyzingId}
+              onAnalyze={(c) => {
+                if (!hasKey) {
+                  setNotice('AI 분석에는 Gemini API 키가 필요해요.');
+                  setShowSettings(true);
+                  return;
+                }
+                analyze(c, { replaceNote: true });
+              }}
             />
             <PoseSection
               poses={allPoses}

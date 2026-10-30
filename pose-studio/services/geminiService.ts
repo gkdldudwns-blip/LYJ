@@ -1,4 +1,5 @@
-import { Character, GenerateOptions, Pose, Settings } from '../types';
+import { ANALYSIS_MODEL } from '../constants';
+import { Character, CharacterKind, GenerateOptions, Pose, Settings } from '../types';
 import { splitDataUrl } from './imageUtils';
 
 export interface GenerateRequest {
@@ -6,12 +7,20 @@ export interface GenerateRequest {
   character: Character;
   pose: Pose;
   options: GenerateOptions;
-  /** 라이브러리 포즈의 마네킹 가이드 또는 내 포즈의 참고 이미지 */
+  /** 기본 포즈의 마네킹 썸네일(가이드) 또는 내 포즈의 참고 이미지 */
   poseImage?: { kind: 'guide' | 'reference'; dataUrl: string };
   caption?: string;
 }
 
 export const resolveApiKey = (settings: Settings) => settings.apiKey.trim() || process.env.GEMINI_API_KEY || '';
+
+async function client(settings: Settings) {
+  const apiKey = resolveApiKey(settings);
+  if (!apiKey) throw new Error('Gemini API 키가 없어요. 오른쪽 위 설정에서 입력해 주세요.');
+  // SDK가 커서 처음 쓸 때 불러온다
+  const { GoogleGenAI } = await import('@google/genai');
+  return new GoogleGenAI({ apiKey });
+}
 
 const imageBlock = (dataUrl: string) => {
   const { mimeType, data } = splitDataUrl(dataUrl);
@@ -23,12 +32,18 @@ function buildInstructions({ character, pose, options, caption }: GenerateReques
     'TASK: Draw the character from the CHARACTER REFERENCE in this pose:',
     pose.prompt,
     '',
+    'BODY / ANATOMY:',
+    `- ${KIND_LINE[character.kind ?? 'humanoid']}`,
+    "- Perform the pose with the character's OWN body exactly as it is built in the reference.",
+    '- If the pose mentions hands, fingers, arms or legs the character does not have, translate them: wings, paws, flippers or tiny nubs act as hands (e.g. a wing raised like a waving hand, a wing tip curled into a thumbs-up). If it has no limbs at all, express the pose with body tilt, squash and stretch, facial expression and comic symbols.',
+    "- NEVER add human arms, hands, fingers or legs that the character does not have, and never change its species, body shape or proportions.",
+    '',
     'KEEP THE CHARACTER IDENTICAL:',
     '- Same art style, line weight, line color and coloring method. If the reference is black-and-white line art, keep it black-and-white; if it is colored, use exactly the same palette.',
     '- Same head-to-body proportions, face design, eyes, hair, outfit and accessories.',
     '- It must look like the same artist drew it on the same day. Do not redesign the character and do not add details that are not in the reference.',
   ];
-  if (character.note.trim()) lines.push(`- Notes from the artist about this character (may be in Korean): ${character.note.trim()}`);
+  if (character.note.trim()) lines.push(`- Description of this character (may be in Korean): ${character.note.trim()}`);
   lines.push(
     '',
     'COMPOSITION:',
@@ -49,12 +64,14 @@ function buildInstructions({ character, pose, options, caption }: GenerateReques
   return lines.join('\n');
 }
 
+const KIND_LINE: Record<CharacterKind, string> = {
+  humanoid: 'This character has a human-like body (two arms with hands and two legs), even if it is stylized or chibi.',
+  creature: 'This character is an animal or creature whose body differs from a human (for example wings instead of arms, paws, four legs, a tail, or no arms).',
+  object: 'This character is an object, food or a blob with no limbs or only tiny ones.',
+};
+
 export async function generatePoseImage(req: GenerateRequest): Promise<string> {
-  const apiKey = resolveApiKey(req.settings);
-  if (!apiKey) throw new Error('Gemini API 키가 없어요. 오른쪽 위 설정에서 입력해 주세요.');
-  // SDK가 커서 첫 생성 때 불러온다
-  const { GoogleGenAI } = await import('@google/genai');
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = await client(req.settings);
 
   const { character, poseImage } = req;
   const input: ({ type: 'text'; text: string } | ReturnType<typeof imageBlock>)[] = [
@@ -72,10 +89,10 @@ export async function generatePoseImage(req: GenerateRequest): Promise<string> {
       {
         type: 'text',
         text:
-          'The next image is a POSE GUIDE: a rough blank mannequin with a round head and cross-shaped guide lines on the face. ' +
+          'The next image is a POSE GUIDE drawn with a generic doodle mannequin (a round head with cross-shaped guide lines and no face). ' +
           'Use it ONLY to understand the body pose, gesture, head direction and prop placement; the cross lines only show where the face is pointing. ' +
-          "Do NOT copy the mannequin's drawing style, round head, cross lines or proportions. " +
-          'Symbols in the guide (sparkles, sweat drops, hearts, !, ?, Z, music notes) are optional mood hints.',
+          "Do NOT copy the mannequin's look, round head, cross lines, line style or proportions; draw the CHARACTER instead. " +
+          'Comic symbols in the guide (sparkles, sweat drops, hearts, !, ?, Z, music notes) are optional mood hints.',
       },
       imageBlock(poseImage.dataUrl),
     );
@@ -112,6 +129,35 @@ export async function generatePoseImage(req: GenerateRequest): Promise<string> {
     throw new Error(reason ? `이미지가 만들어지지 않았어요: ${reason}` : '이미지가 만들어지지 않았어요. 다시 시도해 주세요.');
   }
   return `data:${out.mime_type ?? 'image/png'};base64,${out.data}`;
+}
+
+export interface CharacterAnalysis {
+  kind: CharacterKind;
+  description: string;
+}
+
+const ANALYSIS_PROMPT = `You help an artist turn their character into stickers in many poses. Look at the CHARACTER REFERENCE image(s) and reply with JSON only:
+{"kind": "humanoid" | "creature" | "object", "description": "<Korean>"}
+- kind: "humanoid" if it has a human-like body with two arms ending in hands and two legs (even if chibi or animal-headed); "creature" if it is an animal or creature whose body differs from a human (wings instead of arms, paws, four legs, no arms, a tail...); "object" if it is food, an object or a blob with no limbs or only tiny ones.
+- description: 2-3 short Korean sentences: what it is, key colors and features, which body parts it can pose with (e.g. "팔 대신 작은 날개 2개, 주황색 다리 2개, 손가락 없음"), and finally how hand gestures should be expressed (e.g. "손동작은 날개로 표현").`;
+
+/** 캐릭터가 사람형인지, 어떤 몸 구조인지 AI에게 묻는다 */
+export async function analyzeCharacter(settings: Settings, character: Character): Promise<CharacterAnalysis> {
+  const ai = await client(settings);
+  const interaction = await withRetry(() =>
+    ai.interactions.create({
+      model: ANALYSIS_MODEL,
+      input: [{ type: 'text', text: ANALYSIS_PROMPT }, ...character.images.map(imageBlock)],
+      response_mime_type: 'application/json',
+      store: false,
+    }),
+  );
+  const text = interaction.output_text ?? '';
+  const json = /\{[\s\S]*\}/.exec(text)?.[0];
+  if (!json) throw new Error('캐릭터 분석 결과를 읽지 못했어요.');
+  const parsed = JSON.parse(json) as Partial<CharacterAnalysis>;
+  const kind: CharacterKind = parsed.kind === 'creature' || parsed.kind === 'object' ? parsed.kind : 'humanoid';
+  return { kind, description: (parsed.description ?? '').trim() };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

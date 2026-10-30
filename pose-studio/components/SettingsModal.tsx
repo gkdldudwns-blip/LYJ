@@ -97,7 +97,7 @@ const SettingsModal: React.FC<{
           checked={draft.sendPoseGuide}
           onChange={(v) => set('sendPoseGuide', v)}
           label="포즈 가이드 그림 함께 보내기"
-          hint="썸네일 마네킹 그림을 같이 보내 포즈를 더 정확히 따라 하게 해요. 마네킹 그림체가 섞이면 꺼 보세요."
+          hint="사람형 캐릭터일 때 썸네일 그림을 같이 보내 포즈를 더 정확히 따라 하게 해요. 동물·사물 캐릭터에는 보내지 않아요. 마네킹 모양이 섞여 나오면 꺼 보세요."
         />
 
         <button
