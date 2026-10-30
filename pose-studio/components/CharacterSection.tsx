@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CHARACTER_KINDS } from '../constants';
+import { CHARACTER_KINDS, MAX_CHARACTER_IMAGES } from '../constants';
 import { Character } from '../types';
 import { normalizeImage, readFileAsDataUrl } from '../services/imageUtils';
 import { Card, Segmented, Spinner } from './ui';
-
-export const MAX_CHARACTER_IMAGES = 4;
 
 async function filesToImages(files: Iterable<File>): Promise<string[]> {
   const images: string[] = [];
@@ -158,12 +156,28 @@ const CharacterSection: React.FC<{
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_1.2fr]">
           <div>
             <p className="text-xs text-slate-500 mb-2">
-              참고 그림 {selected.images.length}/{MAX_CHARACTER_IMAGES} · 첫 장이 대표(정면 전신)예요. 측면·뒷모습을 더하면 더 정확해져요.
+              참고 그림 {selected.images.length}/{MAX_CHARACTER_IMAGES} · ★ 첫 장이 대표예요. 다른 각도나 마음에 든 결과 그림을 더하면 더 정확해져요.
+              결과 그림은 "참고 그림으로 추가" 버튼으로 바로 넣을 수 있어요.
             </p>
             <div className="grid grid-cols-4 gap-2" {...dropProps('add')}>
               {selected.images.map((img, i) => (
                 <div key={i} className="relative group">
-                  <img src={img} alt={`참고 그림 ${i + 1}`} className="w-full aspect-square object-contain rounded-xl border border-[#ece2f6] bg-white" />
+                  <img
+                    src={img}
+                    alt={`참고 그림 ${i + 1}`}
+                    className={`w-full aspect-square object-contain rounded-xl border bg-white ${i === 0 ? 'border-purple-400' : 'border-[#ece2f6]'}`}
+                  />
+                  {i === 0 ? (
+                    <span className="absolute bottom-1 left-1 px-1.5 rounded-md bg-purple-600 text-white text-[10px] font-bold">★ 대표</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onUpdate({ ...selected, images: [img, ...selected.images.filter((_, j) => j !== i)] })}
+                      className="absolute bottom-1 left-1 px-1.5 rounded-md bg-white/90 border border-[#e6dcf1] text-[10px] text-slate-500 hover:text-purple-600"
+                    >
+                      ☆ 대표로
+                    </button>
+                  )}
                   {selected.images.length > 1 && (
                     <button
                       type="button"

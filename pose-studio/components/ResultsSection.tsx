@@ -6,9 +6,10 @@ const ResultsSection: React.FC<{
   jobs: Job[];
   onRetry: (job: Job) => void;
   onOpen: (item: ResultItem) => void;
+  onAddReference: (items: ResultItem[]) => void;
   onClear: () => void;
   onDownloadAll: (items: ResultItem[]) => void;
-}> = ({ jobs, onRetry, onOpen, onClear, onDownloadAll }) => {
+}> = ({ jobs, onRetry, onOpen, onAddReference, onClear, onDownloadAll }) => {
   if (!jobs.length) return null;
   const done = jobs.filter((j) => j.status === 'done' && j.result).map((j) => j.result!);
   const pending = jobs.filter((j) => j.status === 'queued' || j.status === 'running').length;
@@ -68,10 +69,15 @@ const ResultsSection: React.FC<{
             </div>
             <div className="flex items-center justify-between px-2.5 py-2 text-xs">
               <span className="font-semibold text-slate-700 truncate">{job.pose.name}</span>
-              {job.status === 'done' && (
-                <button type="button" onClick={() => onRetry(job)} className="shrink-0 text-purple-600 hover:text-purple-800">
-                  다시 그리기
-                </button>
+              {job.status === 'done' && job.result && (
+                <span className="shrink-0 flex gap-2">
+                  <button type="button" onClick={() => onAddReference([job.result!])} className="text-purple-600 hover:text-purple-800">
+                    ＋참고
+                  </button>
+                  <button type="button" onClick={() => onRetry(job)} className="text-purple-600 hover:text-purple-800">
+                    다시
+                  </button>
+                </span>
               )}
             </div>
           </div>

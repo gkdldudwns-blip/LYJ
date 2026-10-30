@@ -10,9 +10,10 @@ const Lightbox: React.FC<{
   prefs: ExportPrefs;
   onChangePrefs: (p: ExportPrefs) => void;
   onDownload: (item: ResultItem) => void;
+  onAddReference: (item: ResultItem) => void;
   onDelete: (item: ResultItem) => void;
   onClose: () => void;
-}> = ({ item, prefs, onChangePrefs, onDownload, onDelete, onClose }) => {
+}> = ({ item, prefs, onChangePrefs, onDownload, onAddReference, onDelete, onClose }) => {
   const [preview, setPreview] = useState(item.image);
   const [busy, setBusy] = useState(false);
 
@@ -40,13 +41,20 @@ const Lightbox: React.FC<{
       </div>
       <div className="mt-4 space-y-4">
         <ExportControls prefs={prefs} onChange={onChangePrefs} />
+        <button
+          type="button"
+          onClick={() => onDownload(item)}
+          className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold"
+        >
+          PNG 저장
+        </button>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => onDownload(item)}
-            className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold"
+            onClick={() => onAddReference(item)}
+            className="flex-1 py-3 rounded-2xl border-2 border-purple-200 text-purple-700 font-bold hover:bg-purple-50"
           >
-            PNG 저장
+            ＋ 참고 그림으로 추가
           </button>
           <button
             type="button"
@@ -56,6 +64,9 @@ const Lightbox: React.FC<{
             삭제
           </button>
         </div>
+        <p className="text-xs text-slate-400">
+          "참고 그림으로 추가"는 이 그림을 '{item.characterName}'의 참고 그림에 넣어요. 다음 그림부터 함께 참고해서 더 일관되게 그려요.
+        </p>
         <p className="text-xs text-slate-400">
           투명 배경은 테두리와 이어진 흰 부분만 지워요. 선으로 둘러싸인 안쪽 흰색(얼굴 등)은 그대로 남아요.
         </p>
