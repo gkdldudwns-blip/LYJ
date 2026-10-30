@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { CHARACTER_KINDS } from '../constants';
 import { Character } from '../types';
 import { normalizeImage, readFileAsDataUrl } from '../services/imageUtils';
-import { Card, Spinner } from './ui';
+import { Card, Segmented, Spinner } from './ui';
 
 export const MAX_CHARACTER_IMAGES = 4;
 
@@ -29,7 +30,9 @@ const CharacterSection: React.FC<{
   onCreate: (images: string[]) => void;
   onUpdate: (c: Character) => void;
   onDelete: (id: string) => void;
-}> = ({ characters, selectedId, onSelect, onCreate, onUpdate, onDelete }) => {
+  analyzingId: string | null;
+  onAnalyze: (c: Character) => void;
+}> = ({ characters, selectedId, onSelect, onCreate, onUpdate, onDelete, analyzingId, onAnalyze }) => {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
@@ -196,13 +199,45 @@ const CharacterSection: React.FC<{
                 className="mt-1 w-full rounded-xl border border-[#e6dcf1] px-3 py-2 text-sm focus:outline-none focus:border-purple-400"
               />
             </label>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-600">몸 구조</span>
+                <button
+                  type="button"
+                  disabled={analyzingId === selected.id}
+                  onClick={() => onAnalyze(selected)}
+                  className="flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800 disabled:text-slate-400"
+                >
+                  {analyzingId === selected.id ? (
+                    <>
+                      <Spinner className="w-3.5 h-3.5" /> AI가 살펴보는 중…
+                    </>
+                  ) : (
+                    '✨ AI로 다시 분석'
+                  )}
+                </button>
+              </div>
+              <div className="mt-1.5">
+                <Segmented
+                  value={selected.kind ?? ''}
+                  options={CHARACTER_KINDS.map((k) => ({ id: k.id, label: k.label }))}
+                  onChange={(kind) => onUpdate({ ...selected, kind: kind || undefined })}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                {selected.kind
+                  ? CHARACTER_KINDS.find((k) => k.id === selected.kind)?.hint +
+                    (selected.kind === 'humanoid' ? '. 포즈 가이드 그림도 함께 보내요.' : '. 팔다리를 만들지 않고 이 몸에 맞게 포즈를 바꿔요.')
+                  : '처음 만들 때 AI가 자동으로 정해요. 직접 골라도 돼요.'}
+              </p>
+            </div>
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">캐릭터 특징 메모 (선택)</span>
+              <span className="text-xs font-semibold text-slate-600">캐릭터 설명 (AI가 채워요 · 고쳐도 돼요)</span>
               <textarea
                 value={selected.note}
                 onChange={(e) => onUpdate({ ...selected, note: e.target.value })}
-                rows={2}
-                placeholder="예: 흰 둥근 얼굴, 검은 단발머리, 노란 후드티, 볼터치 없음"
+                rows={3}
+                placeholder="예: 노란 병아리. 팔 대신 작은 날개 2개, 주황색 다리 2개. 손동작은 날개로 표현."
                 className="mt-1 w-full rounded-xl border border-[#e6dcf1] px-3 py-2 text-sm resize-none focus:outline-none focus:border-purple-400"
               />
             </label>

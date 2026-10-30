@@ -9,6 +9,19 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/** 앱에 들어 있는 그림(썸네일 등)을 모델에 보낼 수 있게 dataURL로 바꾼다 */
+export async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`그림을 불러오지 못했어요 (${res.status})`);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function loadImage(src: string): Promise<HTMLImageElement> {
   const img = new Image();
   img.src = src;

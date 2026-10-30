@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CATEGORIES } from '../constants';
 import { Pose, PoseCategory } from '../types';
-import { figureDataUrl } from '../services/figure';
 import { Card } from './ui';
 
 type Tab = 'all' | 'favorite' | PoseCategory;
@@ -16,11 +15,6 @@ const PoseSection: React.FC<{
   onDeleteCustom: (id: string) => void;
 }> = ({ poses, selected, onChangeSelected, favorites, onToggleFavorite, onAddCustom, onDeleteCustom }) => {
   const [tab, setTab] = useState<Tab>('all');
-  const thumbs = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of poses) if (p.figure) map.set(p.id, figureDataUrl(p.figure));
-    return map;
-  }, [poses]);
 
   const favSet = useMemo(() => new Set(favorites), [favorites]);
   const visible = poses.filter((p) =>
@@ -106,7 +100,7 @@ const PoseSection: React.FC<{
         {visible.map((p) => {
           const on = selected.has(p.id);
           const fav = favSet.has(p.id);
-          const thumb = thumbs.get(p.id) ?? p.refImage;
+          const thumb = p.thumb ?? p.refImage;
           return (
             <div key={p.id} className="relative">
               <button
@@ -118,7 +112,7 @@ const PoseSection: React.FC<{
                 }`}
               >
                 {thumb ? (
-                  <img src={thumb} alt="" className="w-full aspect-square object-contain" draggable={false} />
+                  <img src={thumb} alt="" className="w-full aspect-square object-contain p-1.5" draggable={false} loading="lazy" />
                 ) : (
                   <span className="w-full aspect-square flex items-center justify-center p-3 text-[11px] leading-snug text-slate-500 bg-[#faf7fd]">
                     {p.prompt.slice(0, 40)}
