@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
+import { PLAN_TARGETS, PlanTarget } from '../constants';
 import { Character, PoseIdea } from '../types';
 import { Modal, Segmented, Spinner } from './ui';
+
+const PLATFORMS: { id: PlanTarget['platform']; label: string }[] = [
+  { id: 'kakao', label: '카카오 이모티콘' },
+  { id: 'line', label: '라인 스티커' },
+];
 
 /** 콘셉트에 맞는 이모티콘 아이디어를 받아 골라서 "내 포즈"로 넣는다 */
 const ConceptPlanModal: React.FC<{
   character: Character;
-  onPlan: (c: Character, count: number) => Promise<PoseIdea[]>;
+  onPlan: (c: Character, target: PlanTarget) => Promise<PoseIdea[]>;
   onAdd: (ideas: PoseIdea[]) => void;
   onClose: () => void;
 }> = ({ character, onPlan, onAdd, onClose }) => {
-  const [count, setCount] = useState(16);
+  const [targetId, setTargetId] = useState(PLAN_TARGETS[0].id);
+  const target = PLAN_TARGETS.find((t) => t.id === targetId) ?? PLAN_TARGETS[0];
+  const choices = PLAN_TARGETS.filter((t) => t.platform === target.platform);
   const [ideas, setIdeas] = useState<PoseIdea[]>([]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -17,7 +25,7 @@ const ConceptPlanModal: React.FC<{
   const plan = async () => {
     setBusy(true);
     try {
-      const next = await onPlan(character, count);
+      const next = await onPlan(character, target);
       setIdeas(next);
       setPicked(new Set(next.map((_, i) => i)));
     } finally {
@@ -40,11 +48,28 @@ const ConceptPlanModal: React.FC<{
           <p className="mt-1 font-bold text-slate-900">{character.concept?.trim() || '(콘셉트를 아직 안 적었어요. 적어 두면 더 개성 있게 기획해요)'}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-semibold text-slate-600">아이디어 개수</span>
-          <Segmented<number> value={count} options={[8, 16, 24].map((n) => ({ id: n, label: `${n}개` }))} onChange={setCount} />
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-600 mb-2">어디에 낼 세트인가요?</p>
+            <Segmented
+              value={target.platform}
+              options={PLATFORMS}
+              onChange={(p) => setTargetId(PLAN_TARGETS.find((t) => t.platform === p && t.count === 24)?.id ?? PLAN_TARGETS.find((t) => t.platform === p)!.id)}
+            />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-600 mb-2">{target.platform === 'kakao' ? '종류' : '개수'}</p>
+            <Segmented<string> value={target.id} options={choices.map((t) => ({ id: t.id, label: t.label }))} onChange={setTargetId} />
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            {target.hint} 이미 있는 포즈와 겹치지 않게 {target.count}개를 기획해요.
+            {target.platform === 'kakao' && (
+              <span className="block mt-1 text-slate-400">
+                널리 알려진 제안 기준이에요. 2025년 11월 스튜디오 개편으로 바뀌었을 수 있으니 제출 전에 제안 화면에서 확인하세요.
+              </span>
+            )}
+          </p>
         </div>
-        <p className="text-xs text-slate-500">라인 스티커는 8·16·24·32·40개 단위로 낼 수 있어요. 이미 있는 포즈와 겹치지 않게 기획해요.</p>
 
         <button
           type="button"
