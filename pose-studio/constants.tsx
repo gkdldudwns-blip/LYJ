@@ -54,6 +54,60 @@ export const ASPECT_RATIOS: { id: AspectRatio; label: string }[] = [
   { id: '9:16', label: '9:16 스토리' },
 ];
 
+/**
+ * 세트 기획 기준. 카카오 개수는 이모티콘 스튜디오 제안 기준으로 널리 알려진 값이고,
+ * 2025년 11월 스튜디오 개편으로 바뀌었을 수 있다. modelHint는 기획 AI에게 주는 설명이다.
+ */
+export interface PlanTarget {
+  id: string;
+  platform: 'kakao' | 'line';
+  label: string;
+  count: number;
+  hint: string;
+  modelHint: string;
+}
+
+const LINE_HINT =
+  'The set is a LINE sticker set (static images shown up to 370x320) for everyday chat: greetings, thanks, sorry, yes/no, reactions, feelings and daily life.';
+
+export const PLAN_TARGETS: PlanTarget[] = [
+  {
+    id: 'kakao-still',
+    platform: 'kakao',
+    label: '멈춰있는 32개',
+    count: 32,
+    hint: '카카오 멈춰있는 이모티콘 제안 기준이에요 (360×360).',
+    modelHint:
+      'The set is a KakaoTalk still emoticon set (static images shown around 360x360) for Korean users. Cover the chat reactions Koreans use most: greetings, thanks, sorry, okay/yes, no, laughing, crying, surprised, angry, cheering, love, tired, hungry, going to work / off work, good night.',
+  },
+  {
+    id: 'kakao-animated',
+    platform: 'kakao',
+    label: '움직이는 24개',
+    count: 24,
+    hint: '카카오 움직이는 이모티콘 제안 기준이에요. 움직임(프레임)은 따로 작업해야 하고, 여기서는 장면과 대표 포즈만 기획해요.',
+    modelHint:
+      'The set is a KakaoTalk animated emoticon set for Korean users. Each idea must be a short, loopable action (about 1-2 seconds) with clear motion; describe the key pose of that motion.',
+  },
+  {
+    id: 'kakao-big',
+    platform: 'kakao',
+    label: '큰 이모티콘 16개',
+    count: 16,
+    hint: '카카오 큰 이모티콘 제안 기준이에요. 크게 보이니 과장된 전신 리액션 위주로 기획해요.',
+    modelHint:
+      'The set is a KakaoTalk big emoticon set for Korean users, shown large in the chat. Use bold, dramatic, full-body reactions that read well at a large size.',
+  },
+  ...[8, 16, 24, 32, 40].map((n) => ({
+    id: `line-${n}`,
+    platform: 'line' as const,
+    label: `${n}개`,
+    count: n,
+    hint: '라인 스티커는 8·16·24·32·40개 단위로 낼 수 있어요.',
+    modelHint: LINE_HINT,
+  })),
+];
+
 /** 내보내기 크기: 0 = 원본 */
 export const EXPORT_SIZES: { id: number; label: string }[] = [
   { id: 0, label: '원본 크기' },

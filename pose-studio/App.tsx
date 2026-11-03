@@ -11,7 +11,7 @@ import SettingsModal from './components/SettingsModal';
 import CustomPoseModal from './components/CustomPoseModal';
 import BackupModal from './components/BackupModal';
 import ConceptPlanModal from './components/ConceptPlanModal';
-import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, POSES } from './constants';
+import { DEFAULT_OPTIONS, MAX_CHARACTER_IMAGES, PlanTarget, POSES } from './constants';
 import { Character, GenerateOptions, Job, Page, Pose, PoseIdea, ResultItem, Settings } from './types';
 import {
   analyzeCharacter,
@@ -216,10 +216,10 @@ const App: React.FC = () => {
     }
   };
 
-  const planIdeas = async (c: Character, count: number): Promise<PoseIdea[]> => {
+  const planIdeas = async (c: Character, target: PlanTarget): Promise<PoseIdea[]> => {
     if (needKey()) return [];
     try {
-      const ideas = await planPoseIdeas(settingsRef.current, c, count, allPoses.map((p) => p.name));
+      const ideas = await planPoseIdeas(settingsRef.current, c, target.count, allPoses.map((p) => p.name), target.modelHint);
       if (!ideas.length) setNotice('아이디어를 받지 못했어요. 다시 시도해 주세요.');
       return ideas;
     } catch (err) {

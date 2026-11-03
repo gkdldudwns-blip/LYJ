@@ -219,11 +219,13 @@ export async function planPoseIdeas(
   character: Character,
   count: number,
   avoid: string[],
+  setHint: string,
 ): Promise<PoseIdea[]> {
   const prompt = `You are a planner of Korean chat sticker (emoticon) sets. Look at the CHARACTER REFERENCE image(s) below.
 ${describe(character)}
 
 Plan ${count} sticker ideas for one set.
+${setHint}
 - Every idea must be useful in everyday Korean chat (greetings, thanks, sorry, yes/no, cheering, reactions, feelings, daily life) AND clearly show the concept.
 - All ideas must be different from each other${avoid.length ? ` and from these existing poses: ${avoid.join(', ')}` : ''}.
 - Use only the body parts this character really has (for example wings instead of hands).
